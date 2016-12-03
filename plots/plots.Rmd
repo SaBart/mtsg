@@ -1,0 +1,29 @@
+#LOAD DATA
+```{r}
+sun_raw<- t(read.csv(file="load_sun.csv",sep=",",head=FALSE))
+nosun_raw<- t(read.csv(file="load_nosun.csv",sep=",",head=FALSE))
+```
+
+#PRE-PROCESSING
+```{r}
+
+days=5 # number of days to plot
+n=60 # aggregate by hours
+
+sun=sun_raw[1:(days*24*60)]
+nosun=nosun_raw[1:(days*24*60)]
+
+sun_agg=tapply( sun, (seq_along(sun)-1) %/% n, sum)
+nosun_agg=tapply( nosun, (seq_along(nosun)-1) %/% n, sum)
+
+sun_ts=ts(sun_agg)
+nosun_ts=ts(nosun_agg)
+
+
+```
+```{r}
+
+plot(seq_along(sun_agg),sun_agg,type="b",col="red")
+plot(seq_along(nosun_agg),nosun_agg,type="b",col="blue")
+```
+
