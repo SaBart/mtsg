@@ -4,11 +4,10 @@ Created on 4 Dec 2016
 @author: SABA
 '''
 import os
-import pandas
 import numpy
 import sklearn
+import pandas
 import matplotlib.pyplot as mp
-
 from keras.models import Sequential
 from keras.layers.core import Dense
 #from numpy.distutils.conv_template import file
@@ -93,28 +92,79 @@ mp.show()
 
 
 
-# LOADING GENERATOR DATA
-
-def load_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv',lag=1):
-	# loading
-	load_raw =pandas.read_csv(path,header=None,sep=",",usecols=[0], names=['load']) # load loads
+# loads generator data
+def load_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv'):
+	load_raw =pandas.read_csv(path,header=None,sep=",",usecols=[0], names=['load'],dtype={'load': numpy.float64}) # load loads
 	load=load_raw.groupby(load_raw.index//60).sum() # hourly aggregation
 	load['hour']=pandas.Series(numpy.concatenate([numpy.arange(1,25)]*365)) # new column for pivoting
 	load['day']=pandas.Series(numpy.repeat(numpy.arange(1,366), repeats=24)) # new column for pivoting
 	load=load.pivot(index='day',columns='hour',values='load') # pivoting
 	return load
 
-
-
-
-
-
+# lags data
 def lag_data(data,lag=1):
 	data_lagged={} # lagged dataframes for merging
 	for i in range(0,lag+1): # for each time step
 		data_lagged[i-lag]=data.shift(-i) # add lagged dataframe
 	res=pandas.concat(data_lagged.values(),axis=1,join='inner',keys=data_lagged.keys()) # merge lagged dataframes	
 	return res.dropna()
+
+# separates data into training & testing sets & converts dataframes to numpy matrices 
+def format_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv', l=1):
+	from sklearn.model_selection import train_test_split
+	data=lag_data(load_data(path),l)
+	train, test =train_test_split(data, test_size=0.2)
+	X_train=train.select(lambda x:x[0] not in [0], axis=1)
+	Y_train=train[0]
+	X_test=test.select(lambda x:x[0] not in [0], axis=1)
+	Y_test=test[0]
+	return X_train.as_matrix(), Y_train.as_matrix(), X_test.as_matrix(), Y_test.as_matrix()
+
+# defines simple NN model
+def model(X_train, Y_train, X_test, Y_test):
+	model = Sequential() # FFN
+	model.add(Dense(25, input_dim=X_train.shape[1],activation='relu')) # input & hidden layers
+	#model.add(Dropout({{uniform(0, 1)}})) # randomly set a number of inputs to 0 to prevent overfitting
+	model.add(Dense(24, activation='sigmoid')) # output layer
+	model.compile(loss='mean_squared_error', optimizer='adam') # assemble network
+	model.fit(X_train, Y_train, batch_size=100, nb_epoch=200, verbose=2, validation_data=(X_test, Y_test))
+	score = model.evaluate(X_test, Y_test, verbose=0)
+	print('Score:', score)
+
+X_train,Y_train,X_test,Y_test=format_data('C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv')
+model(X_train,Y_train,X_test,Y_test)
+
+
+# simple NN optimisation
+
+
+from hyperopt import Trials, STATUS_OK, tpe
+from hyperas import optim
+
+
+for l in range(1,3):
+	best_run, best_model = optim.minimize(model=model,
+										  data=data(l),
+										  algo=tpe.suggest,
+										  max_evals=5,
+										  trials=Trials())
+	X_train, Y_train, X_test, Y_test = data()
+	print("Evalutation of best performing model:")
+	print(best_model.evaluate(X_test, Y_test))
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
 
 
 
