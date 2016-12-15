@@ -6,8 +6,9 @@ Created on 4 Dec 2016
 import os
 import numpy
 import sklearn
-import pandas
 import matplotlib.pyplot as mp
+import pandas
+
 #from numpy.distutils.conv_template import file
 #from pandas.io.tests.parser import parse_dates
 
@@ -88,7 +89,7 @@ mp.plot(numpy.arange(24),loads.ix[19].values[1:])
 mp.plot(numpy.arange(24),load_hrs.tolist())
 mp.show() 
 
-
+# DATA PROCESSING METHODS
 
 # loads generator data
 def load_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv'):
@@ -100,16 +101,16 @@ def load_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electrici
 	return load
 
 # lags data
-def lag_data(data,lag=1):
+def lag_data(data,nb_shifts=1,shift=7):
 	data_lagged={} # lagged dataframes for merging
-	for i in range(0,lag+1): # for each time step
-		data_lagged[i-lag]=data.shift(-i) # add lagged dataframe
+	for i in range(0,nb_shifts+1): # for each time step
+		data_lagged[i-nb_shifts]=data.shift(-i*shift) # add lagged dataframe
 	res=pandas.concat(data_lagged.values(),axis=1,join='inner',keys=data_lagged.keys()) # merge lagged dataframes	
 	return res.dropna()
 
 # separates data into training & testing sets & converts dataframes to numpy matrices 
 def format_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv', lag=1, test_size=0.2):
-	data=lag_data(load_data(path),lag)
+	data=lag_data(load_data(path),nb_shifts=lag)
 	train, test =split_train_test(data, test_size)
 	X_train,Y_train=split_X_Y(train)
 	X_test,Y_test=split_X_Y(test)
@@ -138,17 +139,37 @@ def create_model(nb_in=24, nb_out=24, nb_hidden=50, nb_epoch=200, batch_size=1, 
 	model.compile(loss=loss, optimizer=optimizer) # assemble network	
 	return model
 
-from sklearn.metrics import mean_squared_error, make_scorer
-mse = make_scorer(mean_squared_error, multioutput='uniform_average')
 
-from keras.wrappers.scikit_learn import KerasClassifier
+# MLP OPTIMIZATION
 from sklearn.model_selection import GridSearchCV
+from sklearn.neural_network import MLPRegressor
 
 seed=0 # fix seed for reprodicibility
 numpy.random.seed(seed)
 path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv' # data path
-X,Y=split_X_Y(lag_data(load_data(path),lag=1)) # prepare data
+X,Y=split_X_Y(lag_data(load_data(path),nb_shifts=3)) # prepare data
+model=MLPRegressor(solver='adam') # configure model
+# grid parameter space
+param_grid={'hidden_layer_sizes': [(25,), (50,), (75,),(100,),(125,),(150,)],
+		'max_iter': [1000],
+		'batch_size':[1,10,20,50,100,200]
+		} 
+best_model = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1) # configure grid search
+search_result = best_model.fit(X.as_matrix(), Y.as_matrix())
+
+print("Best: %f using %s" % (search_result.best_score_, search_result.best_params_))
+means = search_result.cv_results_['mean_test_score']
+stds = search_result.cv_results_['std_test_score']
+params = search_result.cv_results_['params']
+for mean, stdev, param in zip(means, stds, params):
+	print("%f (%f) with: %r" % (mean, stdev, param))
+
+
+
+from sklearn.metrics import mean_squared_error, make_scorer
+from keras.wrappers.scikit_learn import KerasClassifier
 model = KerasClassifier(build_fn=create_model)
+mse = make_scorer(mean_squared_error, multioutput='uniform_average')
 
 #nb_hidden=[10,20,30,40,50,60,70,80,90,100] # domain for number of hidden neurons
 nb_in=[X.shape[1]]
@@ -158,12 +179,6 @@ param_grid={'nb_hidden':nb_hidden} # grid parameter space
 grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1, scoring='r2')
 grid_result = grid.fit(X.as_matrix(), Y.as_matrix())
 # summarize results
-print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
-means = grid_result.cv_results_['mean_test_score']
-stds = grid_result.cv_results_['std_test_score']
-params = grid_result.cv_results_['params']
-for mean, stdev, param in zip(means, stds, params):
-    print("%f (%f) with: %r" % (mean, stdev, param))
 
 
 
@@ -217,7 +232,7 @@ means = grid_result.cv_results_['mean_test_score']
 stds = grid_result.cv_results_['std_test_score']
 params = grid_result.cv_results_['params']
 for mean, stdev, param in zip(means, stds, params):
-    print("%f (%f) with: %r" % (mean, stdev, param))
+	print("%f (%f) with: %r" % (mean, stdev, param))
 
 
 
