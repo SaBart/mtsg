@@ -95,13 +95,14 @@ mp.show()
 def load_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv'):
 	load_raw =pandas.read_csv(path,header=None,sep=",",usecols=[0], names=['load'],dtype={'load': numpy.float64}) # load loads
 	load=load_raw.groupby(load_raw.index//60).sum() # hourly aggregation
-	load['hour']=pandas.Series(numpy.concatenate([numpy.arange(1,25)]*365)) # new column for pivoting
-	load['day']=pandas.Series(numpy.repeat(numpy.arange(1,366), repeats=24)) # new column for pivoting
+	nb_days=load.shape[0]//24 # number of days
+	load['hour']=pandas.Series(numpy.concatenate([numpy.arange(1,25)]*nb_days)) # new column for pivoting
+	load['day']=pandas.Series(numpy.repeat(numpy.arange(1,nb_days+1), repeats=24)) # new column for pivoting
 	load=load.pivot(index='day',columns='hour',values='load') # pivoting
 	return load
 
-# lags data
-def lag_data(data,nb_shifts=1,shift=7):
+# shifts data for time series frecasting
+def shift_data(data,nb_shifts=1,shift=7):
 	data_lagged={} # lagged dataframes for merging
 	for i in range(0,nb_shifts+1): # for each time step
 		data_lagged[i-nb_shifts]=data.shift(-i*shift) # add lagged dataframe
@@ -127,6 +128,17 @@ def split_train_test(data, test_size=0.2):
 	from sklearn.model_selection import train_test_split
 	train, test =train_test_split(data, test_size=test_size)
 	return train,test
+
+# split data into 7 datasets according to weekdays
+def split_week_days(data):
+	Sun=data.iloc[::7, :] # simulation starts on Sunday 1 of January
+	Mon=data.iloc[1::7, :]
+	Tue=data.iloc[2::7, :]
+	Wen=data.iloc[3::7, :]
+	Thu=data.iloc[4::7, :]
+	Fri=data.iloc[5::7, :]
+	Sat=data.iloc[6::7, :]
+	return Sun, Mon, Tue, Wen, Thu, Fri, Sat 
 	
 # create & train basic NN model
 def create_model(nb_in=24, nb_out=24, nb_hidden=50, nb_epoch=200, batch_size=1, activation='relu', loss='mean_squared_error', optimizer='adam'):
@@ -147,23 +159,25 @@ from sklearn.neural_network import MLPRegressor
 seed=0 # fix seed for reprodicibility
 numpy.random.seed(seed)
 path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv' # data path
-X,Y=split_X_Y(lag_data(load_data(path),nb_shifts=3)) # prepare data
 model=MLPRegressor(solver='adam') # configure model
 # grid parameter space
 param_grid={'hidden_layer_sizes': [(25,), (50,), (75,),(100,),(125,),(150,)],
 		'max_iter': [1000],
 		'batch_size':[1,10,20,50,100,200]
-		} 
-best_model = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1) # configure grid search
-search_result = best_model.fit(X.as_matrix(), Y.as_matrix())
+		}
 
-print("Best: %f using %s" % (search_result.best_score_, search_result.best_params_))
-means = search_result.cv_results_['mean_test_score']
-stds = search_result.cv_results_['std_test_score']
-params = search_result.cv_results_['params']
-for mean, stdev, param in zip(means, stds, params):
-	print("%f (%f) with: %r" % (mean, stdev, param))
-
+for i in range(1,5): # optimize number of time steps
+	Sun,Mon,Tue,Wen,Thu,Fri,Sat=split_week_days(load_data(path))
+	X,Y=split_X_Y(shift_data(Wen,nb_shifts=i,shift=1)) # prepare data
+	best_model = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1) # configure grid search
+	search_result = best_model.fit(X.as_matrix(), Y.as_matrix())
+	print("Best: %f using %s" % (search_result.best_score_, search_result.best_params_))
+	means = search_result.cv_results_['mean_test_score']
+	stds = search_result.cv_results_['std_test_score']
+	params = search_result.cv_results_['params']
+	for mean, stdev, param in zip(means, stds, params):
+		print("%f (%f) with: %r" % (mean, stdev, param))
+	print()
 
 
 from sklearn.metrics import mean_squared_error, make_scorer
