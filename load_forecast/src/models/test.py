@@ -91,8 +91,17 @@ mp.show()
 
 # DATA PROCESSING METHODS
 
+# loads data
+def load_data(path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv'):
+	load=pandas.read_csv(path,header=0,sep=";",usecols=[0,1,2], names=['date','time','load'],dtype={'load': numpy.float64},na_values=['?'], parse_dates=['date']) # chunk iterator
+	load['hour']=pandas.DatetimeIndex(load['time']).hour # new culumn for hours
+	load['minute']=pandas.DatetimeIndex(load['time']).minute # new column for minutes
+	load=pandas.pivot_table(load,index=['date','hour'], columns='minute', values='load') # pivot so that minutes are columns, date & hour multi-index and load is value
+	return load
+
+
 # loads generator data
-def load_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv'):
+def load_gen_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv'):
 	load_raw =pandas.read_csv(path,header=None,sep=",",usecols=[0], names=['load'],dtype={'load': numpy.float64}) # load loads
 	load=load_raw.groupby(load_raw.index//60).sum() # hourly aggregation
 	nb_days=load.shape[0]//24 # number of days
@@ -161,12 +170,12 @@ numpy.random.seed(seed)
 path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv' # data path
 model=MLPRegressor(solver='adam') # configure model
 # grid parameter space
-param_grid={'hidden_layer_sizes': [(25,), (50,), (75,),(100,),(125,),(150,)],
+param_grid={'hidden_layer_sizes': [(10,), (25,), (50,), (75,),(100,),(125,),(150,)],
 		'max_iter': [1000],
 		'batch_size':[1,10,20,50,100,200]
 		}
 
-for i in range(1,5): # optimize number of time steps
+for i in range(1,6): # optimize number of time steps
 	Sun,Mon,Tue,Wen,Thu,Fri,Sat=split_week_days(load_data(path))
 	X,Y=split_X_Y(shift_data(Wen,nb_shifts=i,shift=1)) # prepare data
 	best_model = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1) # configure grid search
