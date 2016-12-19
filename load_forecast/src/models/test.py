@@ -4,10 +4,11 @@ Created on 4 Dec 2016
 @author: SABA
 '''
 import os
-import numpy
+import numpy as np
 import sklearn
-import matplotlib.pyplot as mp
-import pandas
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 
 #from numpy.distutils.conv_template import file
 #from pandas.io.tests.parser import parse_dates
@@ -16,24 +17,24 @@ import pandas
 # PARAMETERS
 
 time_ints=24 # number of time intervals
-cols=numpy.arange(1,1+time_ints).tolist() # column names
+cols=np.arange(1,1+time_ints).tolist() # column names
 
 
 # LOADING ENVIRONMENTAL DATA
 dir_data='C:/Users/SABA/Google Drive/mtsg/data/homeB-all/homeB-environmental/'
 
-temp_in = pandas.DataFrame(columns=cols) # inside temperature
-temp_out = pandas.DataFrame(columns=cols) # outside temperature
-hum_in = pandas.DataFrame(columns=cols) # inside humidity
-hum_out = pandas.DataFrame(columns=cols) # outside humidity
+temp_in = pd.DataFrame(columns=cols) # inside temperature
+temp_out = pd.DataFrame(columns=cols) # outside temperature
+hum_in = pd.DataFrame(columns=cols) # inside humidity
+hum_out = pd.DataFrame(columns=cols) # outside humidity
 
 for file in os.listdir(dir_data):
 	if file.endswith(".csv"):
-		env_raw =pandas.read_csv(r'C:\Users\SABA\Google Drive\mtsg\data\homeB-all\homeB-power\2012-Apr-15.csv',header=None,sep=",",usecols=[0,1,2,3,4], names=['timestamp','temp_in','temp_out','hum_in','hum_out'],index_col=[0]) # load loads
+		env_raw =pd.read_csv(r'C:\Users\SABA\Google Drive\mtsg\data\homeB-all\homeB-power\2012-Apr-15.csv',header=None,sep=",",usecols=[0,1,2,3,4], names=['timestamp','temp_in','temp_out','hum_in','hum_out'],index_col=[0]) # load loads
 		# add previous values for missing timestamps
 		# maybe predict them from a couple of previus values?
 		start=env_raw.index.min() # first value of new index
-		idx=pandas.Index(numpy.arange(start=start,stop=start+60*60*24,step=300)) # timestamps for the whole day, end at 23:59:59
+		idx=pd.Index(np.arange(start=start,stop=start+60*60*24,step=300)) # timestamps for the whole day, end at 23:59:59
 		env_full=env_raw.reindex(idx, method='nearest') # fill missing with nearest values (predict them?)
 		temp_in_hrs=load_full.as_matrix(columns=['temp_in']).reshape(-1,load_full.shape[0]//time_ints).average(axis=1) # averaging inside temperature
 		temp_out_hrs=load_full.as_matrix(columns=['temp_out']).reshape(-1,load_full.shape[0]//time_ints).average(axis=1) # averaging outside temperature
@@ -46,67 +47,71 @@ for file in os.listdir(dir_data):
 
 
 
-mp.plot(loads.loc[80])
-mp.show()
+plt.plot(loads.loc[80])
+plt.show()
 
 # MISSING DATA HISTOGRAM 
 
 dir_data='C:/Users/SABA/Google Drive/mtsg/data/homeB-all/homeB-power/'
-#loads_all = pandas.DataFrame(columns=['time','load'])
+#loads_all = pd.DataFrame(columns=['time','load'])
 loads_list=[]
 
 for file in os.listdir(dir_data):
 	if file.endswith(".csv"):
-		load_raw =pandas.read_csv(dir_data+file,header=None,sep=",",usecols=[0,1], parse_dates=True, names=['time','load'],index_col=[0]) # load loads
+		load_raw =pd.read_csv(dir_data+file,header=None,sep=",",usecols=[0,1], parse_dates=True, names=['time','load'],index_col=[0]) # load loads
 		loads_list.append(load_raw)
 		
-loads_all=pandas.concat(loads_list)		
+loads_all=pd.concat(loads_list)		
 
 
 # LOADING LOAD DATA
 dir_data='C:/Users/SABA/Google Drive/mtsg/data/homeB-all/homeB-power/'
-loads = pandas.DataFrame()
+loads = pd.DataFrame()
 
 for file in os.listdir(dir_data):
 	if file.endswith(".csv"):
-		load_raw =pandas.read_csv(dir_data+file,header=None,sep=",",usecols=[0,1], parse_dates=True, date_parser=(lambda x:pandas.to_datetime(x,unit='s')), names=['time','load'],index_col=[0]) # load loads
+		load_raw =pd.read_csv(dir_data+file,header=None,sep=",",usecols=[0,1], parse_dates=True, date_parser=(lambda x:pd.to_datetime(x,unit='s')), names=['time','load'],index_col=[0]) # load loads
 		if load_raw.shape[0]/(60*60*24)<0.90: # discard file with more than 5% missing data
 			continue
 		# add previous values for missing timestamps
 		# maybe predict them from a couple of previus values?
 		start=load_raw.index.min() # first value of new index
-		idx=pandas.date_range(start=start,periods=86400,freq='1S') # timestamps for the whole day, end at 23:59:59
+		idx=pd.date_range(start=start,periods=86400,freq='1S') # timestamps for the whole day, end at 23:59:59
 		load_full=load_raw.reindex(idx, method='nearest') # fill missing with nearest values (predict them?)
 		load_hrs=load_full.resample('H').sum() # hourly aggregation of loads
 		# build new entry for current day
-		load_hrs['date']=pandas.DatetimeIndex(load_hrs.index).date # new index
-		load_hrs['time']=pandas.DatetimeIndex(load_hrs.index).time # new columns
+		load_hrs['date']=pd.DatetimeIndex(load_hrs.index).date # new index
+		load_hrs['time']=pd.DatetimeIndex(load_hrs.index).time # new columns
 		loads=loads.append(load_hrs.pivot(index='date', columns='time', values='load')) # pivot & append new entry
 
 loads.ix['2012-06-04'].plot(y='load')
 
-mp.plot(numpy.arange(24),loads.ix[19].values[1:])
-mp.plot(numpy.arange(24),load_hrs.tolist())
-mp.show() 
+plt.plot(np.arange(24),loads.ix[19].values[1:])
+plt.plot(np.arange(24),load_hrs.tolist())
+plt.show() 
 
 # DATA PROCESSING METHODS
 
 # loads data
 def load_data(path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv'):
-	load=pandas.read_csv(path,header=0,sep=";",usecols=[0,1,2], names=['date','time','load'],dtype={'load': numpy.float64},na_values=['?'], parse_dates=['date']) # chunk iterator
-	load['hour']=pandas.DatetimeIndex(load['time']).hour # new culumn for hours
-	load['minute']=pandas.DatetimeIndex(load['time']).minute # new column for minutes
-	load=pandas.pivot_table(load,index=['date','hour'], columns='minute', values='load') # pivot so that minutes are columns, date & hour multi-index and load is value
+	load=pd.read_csv(path,header=0,sep=";",usecols=[0,1,2], names=['date','time','load'],dtype={'load': np.float64},na_values=['?'], parse_dates=['date'], date_parser=(lambda x:pd.to_datetime(x,format='%d/%m/%Y'))) # chunk iterator
+	load['hour']=pd.DatetimeIndex(load['time']).hour # new culumn for hours
+	load['minute']=pd.DatetimeIndex(load['time']).minute # new column for minutes
+	load=pd.pivot_table(load,index=['date','hour'], columns='minute', values='load') # pivot so that minutes are columns, date & hour multi-index and load is value
 	return load
+
+def cut_data(data):
+	load2=load.head(100000)
+	count=load2.groupby(level=0).size()
 
 
 # loads generator data
 def load_gen_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv'):
-	load_raw =pandas.read_csv(path,header=None,sep=",",usecols=[0], names=['load'],dtype={'load': numpy.float64}) # load loads
+	load_raw =pd.read_csv(path,header=None,sep=",",usecols=[0], names=['load'],dtype={'load': np.float64}) # load loads
 	load=load_raw.groupby(load_raw.index//60).sum() # hourly aggregation
 	nb_days=load.shape[0]//24 # number of days
-	load['hour']=pandas.Series(numpy.concatenate([numpy.arange(1,25)]*nb_days)) # new column for pivoting
-	load['day']=pandas.Series(numpy.repeat(numpy.arange(1,nb_days+1), repeats=24)) # new column for pivoting
+	load['hour']=pd.Series(np.concatenate([np.arange(1,25)]*nb_days)) # new column for pivoting
+	load['day']=pd.Series(np.repeat(np.arange(1,nb_days+1), repeats=24)) # new column for pivoting
 	load=load.pivot(index='day',columns='hour',values='load') # pivoting
 	return load
 
@@ -115,12 +120,12 @@ def shift_data(data,nb_shifts=1,shift=7):
 	data_lagged={} # lagged dataframes for merging
 	for i in range(0,nb_shifts+1): # for each time step
 		data_lagged[i-nb_shifts]=data.shift(-i*shift) # add lagged dataframe
-	res=pandas.concat(data_lagged.values(),axis=1,join='inner',keys=data_lagged.keys()) # merge lagged dataframes	
+	res=pd.concat(data_lagged.values(),axis=1,join='inner',keys=data_lagged.keys()) # merge lagged dataframes	
 	return res.dropna()
 
 # separates data into training & testing sets & converts dataframes to numpy matrices 
 def format_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv', lag=1, test_size=0.2):
-	data=lag_data(load_data(path),nb_shifts=lag)
+	data=shift_data(load_data(path),nb_shifts=lag)
 	train, test =split_train_test(data, test_size)
 	X_train,Y_train=split_X_Y(train)
 	X_test,Y_test=split_X_Y(test)
@@ -147,7 +152,7 @@ def split_week_days(data):
 	Thu=data.iloc[4::7, :]
 	Fri=data.iloc[5::7, :]
 	Sat=data.iloc[6::7, :]
-	return Sun, Mon, Tue, Wen, Thu, Fri, Sat 
+	return Sun, Mon, Tue, Wen, Thu, Fri, Sat
 	
 # create & train basic NN model
 def create_model(nb_in=24, nb_out=24, nb_hidden=50, nb_epoch=200, batch_size=1, activation='relu', loss='mean_squared_error', optimizer='adam'):
@@ -166,7 +171,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.neural_network import MLPRegressor
 
 seed=0 # fix seed for reprodicibility
-numpy.random.seed(seed)
+np.random.seed(seed)
 path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv' # data path
 model=MLPRegressor(solver='adam') # configure model
 # grid parameter space
@@ -187,6 +192,22 @@ for i in range(1,6): # optimize number of time steps
 	for mean, stdev, param in zip(means, stds, params):
 		print("%f (%f) with: %r" % (mean, stdev, param))
 	print()
+
+
+# REAL DATA OPTIMISATION
+
+load=load_data('C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv')
+nan_rows=load.ix[load.isnull().sum(axis=1)>0] # all rows containing NaN
+
+# missing data statistics
+nans=load.isnull().sum(axis=1) # count NaNs row-wise
+fig, ax = plt.subplots() # get axis handle
+ax.set_yscale('log') # set logarithmic scale for y-values
+nans.hist(ax=ax,bins=60,bottom=1) # plot histogram of missing values, 
+plt.show()
+
+sns.heatmap(load.isnull())
+
 
 
 from sklearn.metrics import mean_squared_error, make_scorer
@@ -210,9 +231,9 @@ model=create_model(X_train.shape[1],Y_train.shape[1])
 model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch, verbose=2)
 data_pred=model.predict(X_test)
 
-mp.plot(data_pred[0])
-mp.plot(Y_test[0])
-mp.show()
+plt.plot(data_pred[0])
+plt.plot(Y_test[0])
+plt.show()
 
 
 
@@ -236,9 +257,9 @@ def create_model(neurons=1):
 	return model
 # fix random seed for reproducibility
 seed = 7
-numpy.random.seed(seed)
+np.random.seed(seed)
 # load dataset
-dataset = numpy.loadtxt('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/src/models/pima-indians-diabetes.csv', delimiter=",")
+dataset = np.loadtxt('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/src/models/pima-indians-diabetes.csv', delimiter=",")
 # split into input (X) and output (Y) variables
 X = dataset[:,0:8]
 Y = dataset[:,8]
@@ -297,15 +318,15 @@ def cut_data(data,steps=1):
 		for i in range(1,steps+1):
 			new_dict['%s_lag%d' %(col,i)]=data[col].shift(i) # add shifted column
 			tuples.append((i,col)) # new multiIndex entry 
-	res=pandas.DataFrame(new_dict,index=data.index) 
+	res=pd.DataFrame(new_dict,index=data.index) 
 	return res.dropna(axis=0)
 	
 	
 	
 	
-df1 = pandas.DataFrame({'A': ['A0', 'A1', 'A2', 'A3'],'B': ['B0', 'B1', 'B2', 'B3'],'C': ['C0', 'C1', 'C2', 'C3'],'D': ['D0', 'D1', 'D2', 'D3']}, index=[0, 1, 2, 3])
+df1 = pd.DataFrame({'A': ['A0', 'A1', 'A2', 'A3'],'B': ['B0', 'B1', 'B2', 'B3'],'C': ['C0', 'C1', 'C2', 'C3'],'D': ['D0', 'D1', 'D2', 'D3']}, index=[0, 1, 2, 3])
 
-df2 = pandas.DataFrame({'A': ['A4', 'A5', 'A6', 'A7'],'B': ['B4', 'B5', 'B6', 'B7'],'C': ['C4', 'C5', 'C6', 'C7'],'D': ['D4', 'D5', 'D6', 'D7']},index=[4, 5, 6, 7])
+df2 = pd.DataFrame({'A': ['A4', 'A5', 'A6', 'A7'],'B': ['B4', 'B5', 'B6', 'B7'],'C': ['C4', 'C5', 'C6', 'C7'],'D': ['D4', 'D5', 'D6', 'D7']},index=[4, 5, 6, 7])
 
 
 
@@ -316,7 +337,7 @@ df2 = pandas.DataFrame({'A': ['A4', 'A5', 'A6', 'A7'],'B': ['B4', 'B5', 'B6', 'B
 		new_dict[col]=data[col] # add old column
 		for i in range(1,steps+1):
 			new_dict['%s_lag%d' %(col,i)]=data[col].shift(i) # add shifted column 
-	res=pandas.DataFrame(new_dict,index=data.index) 
+	res=pd.DataFrame(new_dict,index=data.index) 
 	return res.dropna(axis=0)
 
 
@@ -328,22 +349,22 @@ load.plot(kind='bar')
 
 
 dir_data='C:/Users/SABA/Google Drive/mtsg/data/homeB-all/homeB-power/'
-loads = pandas.DataFrame(columns=['day'] + cols)
+loads = pd.DataFrame(columns=['day'] + cols)
 
 for file in os.listdir(dir_data):
 	if file.endswith(".csv"):
-		load_raw =pandas.read_csv(dir_data+file,header=None,sep=",",usecols=[0,1], parse_dates=True, date_parser=(lambda x:pandas.to_datetime(x,unit='s')), names=['time','load'],index_col=[0]) # load loads
+		load_raw =pd.read_csv(dir_data+file,header=None,sep=",",usecols=[0,1], parse_dates=True, date_parser=(lambda x:pd.to_datetime(x,unit='s')), names=['time','load'],index_col=[0]) # load loads
 		if load_raw.shape[0]/(60*60*24)<0.90: # discard file with more than 5% missing data
 			continue
 		# add previous values for missing timestamps
 		# maybe predict them from a couple of previus values?
 		start=load_raw.index.min() # first value of new index
-		idx=pandas.date_range(start=start,periods=86400,freq='1S') # timestamps for the whole day, end at 23:59:59
-		#idx=pandas.Index(numpy.arange(start,start+60*60*24)) # timestamps for the whole day, end at 23:59:59
+		idx=pd.date_range(start=start,periods=86400,freq='1S') # timestamps for the whole day, end at 23:59:59
+		#idx=pd.Index(np.arange(start,start+60*60*24)) # timestamps for the whole day, end at 23:59:59
 		load_full=load_raw.reindex(idx, method='nearest') # fill missing with nearest values (predict them?)
 		load_full.resample('H').sum() # aggregate hours
 		#load_hrs=load_full.as_matrix(columns=['load']).reshape(-1,load_full.shape[0]//time_ints).sum(axis=1) # aggregation for time intervals
-		pandas.concat(loads,)
+		pd.concat(loads,)
 		loads.loc[loads.shape[0]]=[start]+load_hrs.tolist()
 
 loads.set_index('day', inplace=True)
@@ -353,9 +374,9 @@ loads.set_index('day', inplace=True)
  
  
  
-load_dh=numpy.reshape(load_h,(365,-1),order='C')
+load_dh=np.reshape(load_h,(365,-1),order='C')
 
-X=numpy.arange(0,numpy.size(load_dh, axis=0))
+X=np.arange(0,np.size(load_dh, axis=0))
 
 
 seed=0
@@ -398,7 +419,7 @@ def create_dataset(dataset, look_back=1):
 # fix random seed for reproducibility
 numpy.random.seed(7)
 # load the dataset
-dataframe = pandas.read_csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/src/models/international-airline-passengers.csv', usecols=[1], engine='python', skipfooter=3)
+dataframe = pd.read_csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/src/models/international-airline-passengers.csv', usecols=[1], engine='python', skipfooter=3)
 dataset = dataframe.values
 dataset = dataset.astype('float32')
 # split into train and test sets
@@ -433,7 +454,7 @@ testPredictPlot = numpy.empty_like(dataset)
 testPredictPlot[:, :] = numpy.nan
 testPredictPlot[len(trainPredict)+(look_back*2)+1:len(dataset)-1, :] = testPredict
 # plot baseline and predictions
-mp.plot(dataset)
-mp.plot(trainPredictPlot)
-mp.plot(testPredictPlot)
-mp.show()
+plt.plot(dataset)
+plt.plot(trainPredictPlot)
+plt.plot(testPredictPlot)
+plt.show()
