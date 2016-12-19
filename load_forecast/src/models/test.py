@@ -6,9 +6,8 @@ Created on 4 Dec 2016
 import os
 import numpy as np
 import sklearn
-import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
+
 
 #from numpy.distutils.conv_template import file
 #from pandas.io.tests.parser import parse_dates
@@ -94,16 +93,24 @@ plt.show()
 
 # loads data
 def load_data(path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv'):
-	load=pd.read_csv(path,header=0,sep=";",usecols=[0,1,2], names=['date','time','load'],dtype={'load': np.float64},na_values=['?'], parse_dates=['date'], date_parser=(lambda x:pd.to_datetime(x,format='%d/%m/%Y'))) # chunk iterator
+	load=pd.read_csv(path,header=0,sep=";",usecols=[0,1,2], names=['date','time','load'],dtype={'load': np.float64},na_values=['?'], parse_dates=['date'], date_parser=(lambda x:pd.to_datetime(x,format='%d/%m/%Y'))) # read csv
 	load['hour']=pd.DatetimeIndex(load['time']).hour # new culumn for hours
 	load['minute']=pd.DatetimeIndex(load['time']).minute # new column for minutes
 	load=pd.pivot_table(load,index=['date','hour'], columns='minute', values='load') # pivot so that minutes are columns, date & hour multi-index and load is value
+	load.sort_index(inplace=True)
 	return load
 
-def cut_data(data):
-	load2=load.head(100000)
-	count=load2.groupby(level=0).size()
-
+# remove incomplete first and last days
+def cut_data(data_temp,inplace=False):
+	if (inplace):data=data_temp
+	else: data=data_temp.copy()
+	f,_=data.index.min() # first day
+	l,_=data.index.max() # last day
+	if (len(data.loc[f])<24): # if first day is incomplete
+		data.drop(f,level=0,inplace=True) # drop the whole day
+	if (len(data.loc[l])<24): # if last day is incomplete
+		data.drop(l,level=0,inplace=True) # drop the whole day
+	return data
 
 # loads generator data
 def load_gen_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Electricity_Profile.csv'):
@@ -165,6 +172,23 @@ def create_model(nb_in=24, nb_out=24, nb_hidden=50, nb_epoch=200, batch_size=1, 
 	model.compile(loss=loss, optimizer=optimizer) # assemble network	
 	return model
 
+# missing data statistics
+
+def nan_hist(data):
+	import matplotlib.pyplot as plt
+	nans=data.isnull().sum(axis=1) # count NaNs row-wise
+	_,ax = plt.subplots() # get axis handle
+	ax.set_yscale('log') # set logarithmic scale for y-values
+	nans.hist(ax=ax,bins=60,bottom=1) # plot histogram of missing values, 
+	plt.show()
+
+def nan_heat(data):
+	import seaborn as sns
+	
+	
+	sns.heatmap(load.isnull())
+
+
 
 # MLP OPTIMIZATION
 from sklearn.model_selection import GridSearchCV
@@ -199,14 +223,7 @@ for i in range(1,6): # optimize number of time steps
 load=load_data('C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv')
 nan_rows=load.ix[load.isnull().sum(axis=1)>0] # all rows containing NaN
 
-# missing data statistics
-nans=load.isnull().sum(axis=1) # count NaNs row-wise
-fig, ax = plt.subplots() # get axis handle
-ax.set_yscale('log') # set logarithmic scale for y-values
-nans.hist(ax=ax,bins=60,bottom=1) # plot histogram of missing values, 
-plt.show()
 
-sns.heatmap(load.isnull())
 
 
 
