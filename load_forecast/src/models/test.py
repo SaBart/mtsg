@@ -6,6 +6,7 @@ Created on 4 Dec 2016
 import os
 import numpy as np
 import sklearn
+import matplotlib.pyplot as plt
 import pandas as pd
 
 
@@ -174,6 +175,7 @@ def create_model(nb_in=24, nb_out=24, nb_hidden=50, nb_epoch=200, batch_size=1, 
 
 # missing data statistics
 
+# plot histogram of missing data
 def nan_hist(data):
 	import matplotlib.pyplot as plt
 	nans=data.isnull().sum(axis=1) # count NaNs row-wise
@@ -182,13 +184,18 @@ def nan_hist(data):
 	nans.hist(ax=ax,bins=60,bottom=1) # plot histogram of missing values, 
 	plt.show()
 
+# plot heatmap of missing data
 def nan_heat(data):
+	import matplotlib.pyplot as plt
 	import seaborn as sns
-	
-	
-	sns.heatmap(load.isnull())
+	nans=data.isnull().sum(axis=1).unstack(fill_value=60) # count NaNs for each hour & 
+	sns.heatmap(nans) # produce heatmap
 
-
+# plot bars  for missing data
+def nan_bar(data):
+	import matplotlib.pyplot as plt
+	nans=data.isnull().sum(axis=1) # count NaNs row-wise
+	nans.plot(kind='bar') # plot histogram of missing values,
 
 # MLP OPTIMIZATION
 from sklearn.model_selection import GridSearchCV
