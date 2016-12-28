@@ -228,8 +228,12 @@ for i in range(1,6): # optimize number of time steps
 # REAL DATA OPTIMISATION
 
 load=load_data('C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv')
-nan_rows=load.ix[load.isnull().sum(axis=1)>0] # all rows containing NaN
+nan_hist(load)
+nan_bar(load)
+nan_heat(load)
 
+load_temp=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.sum())).unstack() # custom sum function where any Nan in arguments gives Nan as result
+#load_temp.isnull().equals(load.isnull().any(axis=1)) # check correctness of lambda function
 
 
 
