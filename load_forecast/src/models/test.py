@@ -123,7 +123,7 @@ def load_gen_data(path='C:/Users/SABA/Google Drive/mtsg/code/generator/out/Elect
 	load=load.pivot(index='day',columns='hour',values='load') # pivoting
 	return load
 
-# shifts data for time series frecasting
+# shifts data for time series forcasting
 def shift_data(data,nb_shifts=1,shift=7):
 	data_lagged={} # lagged dataframes for merging
 	for i in range(0,nb_shifts+1): # for each time step
@@ -197,7 +197,8 @@ def nan_bar(data):
 	nans=data.isnull().sum(axis=1) # count NaNs row-wise
 	nans.plot(kind='bar') # plot histogram of missing values,
 
-# MLP OPTIMIZATION
+# generator data
+# mlp optimisation
 from sklearn.model_selection import GridSearchCV
 from sklearn.neural_network import MLPRegressor
 
@@ -225,15 +226,42 @@ for i in range(1,6): # optimize number of time steps
 	print()
 
 
-# REAL DATA OPTIMISATION
+# French data optimisation
+from sklearn.model_selection import GridSearchCV
+from sklearn.neural_network import MLPRegressor
 
-load=load_data('C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv')
+seed=0 # fix seed for reprodicibility
+np.random.seed(seed)
+path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv' # data path
+
+load=load_data(path) # load data
 nan_hist(load)
 nan_bar(load)
 nan_heat(load)
 
-load_temp=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.sum())).unstack() # custom sum function where any Nan in arguments gives Nan as result
-#load_temp.isnull().equals(load.isnull().any(axis=1)) # check correctness of lambda function
+# keep NANs
+load_with_nans=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.sum())).unstack() # custom sum function where any Nan in arguments gives Nan as result
+#load_with_nans.isnull().equals(load.isnull().any(axis=1)) # check correctness of lambda function
+
+
+model=MLPRegressor(solver='adam') # configure model
+# grid parameter space
+param_grid={'hidden_layer_sizes': [(10,), (25,), (50,), (75,),(100,),(125,),(150,)],
+		'max_iter': [1000],
+		'batch_size':[1,10,20,50,100,200]
+		}
+
+for i in range(1,6): # optimize number of time steps
+	X,Y=split_X_Y(shift_data(load_with_nans,nb_shifts=i,shift=1).dropna()) # prepare data
+	best_model = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1) # configure grid search
+	search_result = best_model.fit(X.as_matrix(), Y.as_matrix())
+	print("Best: %f using %s" % (search_result.best_score_, search_result.best_params_))
+	means = search_result.cv_results_['mean_test_score']
+	stds = search_result.cv_results_['std_test_score']
+	params = search_result.cv_results_['params']
+	for mean, stdev, param in zip(means, stds, params):
+		print("%f (%f) with: %r" % (mean, stdev, param))
+	print()
 
 
 
