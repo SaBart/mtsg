@@ -98,7 +98,8 @@ def load_data(path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consump
 	load['hour']=pd.DatetimeIndex(load['time']).hour # new culumn for hours
 	load['minute']=pd.DatetimeIndex(load['time']).minute # new column for minutes
 	load=pd.pivot_table(load,index=['date','hour'], columns='minute', values='load') # pivot so that minutes are columns, date & hour multi-index and load is value
-	load.sort_index(inplace=True)
+	load=load.applymap(lambda x:(x*1000)/60) # convert kW to Wh 
+	load.sort_index(inplace=True) # sort entries (just in case)
 	return load
 
 # remove incomplete first and last days
@@ -243,7 +244,6 @@ nan_heat(load)
 load_with_nans=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.sum())).unstack() # custom sum function where any Nan in arguments gives Nan as result
 #load_with_nans.isnull().equals(load.isnull().any(axis=1)) # check correctness of lambda function
 
-
 model=MLPRegressor(solver='adam') # configure model
 # grid parameter space
 param_grid={'hidden_layer_sizes': [(10,), (25,), (50,), (75,),(100,),(125,),(150,)],
@@ -253,8 +253,8 @@ param_grid={'hidden_layer_sizes': [(10,), (25,), (50,), (75,),(100,),(125,),(150
 
 for i in range(1,6): # optimize number of time steps
 	X,Y=split_X_Y(shift_data(load_with_nans,nb_shifts=i,shift=1).dropna()) # prepare data
-	best_model = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1) # configure grid search
-	search_result = best_model.fit(X.as_matrix(), Y.as_matrix())
+	best_model = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1) # setting up grid search
+	search_result = best_model.fit(X.as_matrix(), Y.as_matrix()) #  find best parameters
 	print("Best: %f using %s" % (search_result.best_score_, search_result.best_params_))
 	means = search_result.cv_results_['mean_test_score']
 	stds = search_result.cv_results_['std_test_score']
@@ -262,6 +262,79 @@ for i in range(1,6): # optimize number of time steps
 	for mean, stdev, param in zip(means, stds, params):
 		print("%f (%f) with: %r" % (mean, stdev, param))
 	print()
+
+
+# recurrent network optimisation
+
+from tensorflow.contrib.learn import
+
+import tensorflow.contrib.learn.python.learn as learn
+from sklearn import datasets, metrics
+from sklearn.model_selection import GridSearchCV
+
+iris = datasets.load_iris()
+feature_columns = learn.infer_real_valued_columns_from_input(iris.data)
+classifier = learn.DNNClassifier(hidden_units=[10, 20, 10], n_classes=3, feature_columns=feature_columns)
+
+param_grid={'steps': [1000],
+		'batch_size':[1,10,20,50,100,200]
+		}
+
+best_model = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1) # setting up grid search
+search_result = best_model.fit(X.as_matrix(), Y.as_matrix()) #  find best parameters
+
+
+
+classifier.fit(iris.data, iris.target, steps=200, batch_size=32)
+iris_predictions = list(classifier.predict(iris.data, as_iterable=True))
+score = metrics.accuracy_score(iris.target, iris_predictions)
+print("Accuracy: %f" % score)
+
+
+
+
+
+
+
+
+classifier.fit(training_set.data,training_set.target)
+
+
+# Evaluate accuracy.
+accuracy_score = classifier.evaluate(x=test_set.data,
+									 y=test_set.target)["accuracy"]
+print('Accuracy: {0:f}'.format(accuracy_score))
+
+# Classify two new flower samples.
+new_samples = np.array(
+	[[6.4, 3.2, 4.5, 1.5], [5.8, 3.1, 5.0, 1.7]], dtype=float)
+y = list(classifier.predict(new_samples, as_iterable=True))
+print('Predictions: {}'.format(str(y)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -514,3 +587,48 @@ plt.plot(dataset)
 plt.plot(trainPredictPlot)
 plt.plot(testPredictPlot)
 plt.show()
+
+
+
+
+
+
+
+# Use scikit-learn to grid search the batch size and epochs
+import numpy
+from sklearn.model_selection import GridSearchCV
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasClassifier
+# Function to create model, required for KerasClassifier
+def create_model():
+	# create model
+	model = Sequential()
+	model.add(Dense(12, input_dim=8, activation='relu'))
+	model.add(Dense(1, activation='sigmoid'))
+	# Compile model
+	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+	return model
+# fix random seed for reproducibility
+seed = 7
+numpy.random.seed(seed)
+# load dataset
+dataset = numpy.loadtxt("C:/Users/SABA/Google Drive/mtsg/code/load_forecast/src/models/pima-indians-diabetes.csv", delimiter=",")
+# split into input (X) and output (Y) variables
+X = dataset[:,0:8]
+Y = dataset[:,8]
+# create model
+model = KerasClassifier(build_fn=create_model, verbose=0)
+# define the grid search parameters
+batch_size = [10, 20, 40, 60, 80, 100]
+epochs = [10, 50, 100]
+param_grid = dict(batch_size=batch_size, nb_epoch=epochs)
+grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1)
+grid_result = grid.fit(X, Y)
+# summarize results
+print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
+means = grid_result.cv_results_['mean_test_score']
+stds = grid_result.cv_results_['std_test_score']
+params = grid_result.cv_results_['params']
+for mean, stdev, param in zip(means, stds, params):
+    print("%f (%f) with: %r" % (mean, stdev, param))
