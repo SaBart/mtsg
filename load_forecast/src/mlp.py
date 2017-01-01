@@ -45,6 +45,7 @@ def split_X_Y(data):
 # split data into train & test sets
 def split_train_test(data, test_size=0.2):
 	from sklearn.model_selection import train_test_split
+	from sklearn.model_selection import TimeSeriesSplit
 	train, test =train_test_split(data, test_size=test_size)
 	return train,test
 
@@ -70,7 +71,8 @@ def create_model(nb_in=24, nb_out=24, nb_hidden=10, nb_epoch=200, batch_size=10,
 	model.compile(loss=loss, optimizer=optimizer) # assemble network	
 	return model
 
-
+from sklearn.metrics import r2_score, make_scorer
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.model_selection import GridSearchCV
 from keras.wrappers.scikit_learn import KerasRegressor
 
@@ -80,13 +82,16 @@ path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv' # da
 load=load_data(path) # load data
 load_with_nans=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.mean())).unstack() # custom sum function where any Nan in arguments gives Nan as result
 # set grid search parameters and ranges
-grid_space={'nb_hidden':[10,20,30]}
+grid_space={'nb_hidden':[10,20,30],
+			'nb_epoch':[500,1000,1500,2000],
+			'batch_size':[1,5,10,20]
+		}
 
 for i in range(1,6): # optimize for number of time steps
 	X,Y=split_X_Y(shift_data(load_with_nans,nb_shifts=i,shift=1).dropna()) # create patterns & targets in the correct format
 	grid_space['nb_in']=[X.shape[1]] # workaround for enabling varying pattern lengths corresponding to the number of time steps
 	model=KerasRegressor(build_fn=create_model,verbose=0) # create model template
-	grid_setup = GridSearchCV(estimator=model, param_grid=grid_space, n_jobs=1) # set up the grid search
+	grid_setup = GridSearchCV(estimator=model, param_grid=grid_space, cv=TimeSeriesSplit(n_splits=3),n_jobs=1, scoring=make_scorer(r2_score,multioutput='uniform_average'), verbose=10) # set up the grid search
 	grid_result = grid_setup.fit(X.as_matrix(), Y.as_matrix()) # fild best parameters
 	# summarize results
 	print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_)) # print best parameters	means = grid_result.cv_results_['mean_test_score']	stds = grid_result.cv_results_['std_test_score']	params = grid_result.cv_results_['params']	for mean, stdev, param in zip(means, stds, params):	print("%f (%f) with: %r" % (mean, stdev, param)) # print all sets of parameters
