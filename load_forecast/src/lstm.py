@@ -17,29 +17,38 @@ def load_data(path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consump
 	return load
 
 # remove incomplete first and last days
-def cut_data(data_temp,inplace=False):
-	if (inplace):data=data_temp
-	else: data=data_temp.copy()
-	f,_=data.index.min() # first day
-	l,_=data.index.max() # last day
-	if (len(data.loc[f])<24): # if first day is incomplete
-		data.drop(f,level=0,inplace=True) # drop the whole day
-	if (len(data.loc[l])<24): # if last day is incomplete
-		data.drop(l,level=0,inplace=True) # drop the whole day
-	return data
+def cut_data(data,inplace=False):
+	if (inplace):data_new=data
+	else: data_new=data.copy()
+	f,_=data_new.index.min() # first day
+	l,_=data_new.index.max() # last day
+	if (len(data_new.loc[f])<24): # if first day is incomplete
+		data_new.drop(f,level=0,inplace=True) # drop the whole day
+	if (len(data_new.loc[l])<24): # if last day is incomplete
+		data_new.drop(l,level=0,inplace=True) # drop the whole day
+	return data_new
 
 # shifts data for time series forcasting
-def shift_data(data,nb_shifts=1,shift=7):
-	data_lagged={} # lagged dataframes for merging
-	for i in range(0,nb_shifts+1): # for each time step
-		data_lagged[i-nb_shifts]=data.shift(-i*shift) # add lagged dataframe
-	res=pd.concat(data_lagged.values(),axis=1,join='inner',keys=data_lagged.keys()) # merge lagged dataframes	
-	return res.dropna()
+def shift_data(data,n_shifts=1,shift=7):
+	data_shifted={} # lagged dataframes for merging
+	for i in range(0,n_shifts+1): # for each time step
+		label='target' # label for target values
+		if (i!=n_shifts):label='t-{}'.format(n_shifts-i) # labels for patterns
+		data_shifted[label]=data.shift(-i*shift) # add lagged dataframe
+	res=pd.concat(data_shifted.values(),axis=1,join='inner',keys=data_shifted.keys()) # merge lagged dataframes
+	return res.dropna() # TODO: handling missing values
 
-# split data into X & Y
+# order timesteps from the oldest
+def order_timesteps(data, inplace=False):
+	if (inplace):data_new=data
+	else: data_new=data.copy()
+	data_new=data_new[sorted(data_new.columns,reverse=True,key=(lambda x:x[0]))] # sort first level of column multiindex in descending order
+	return data_new
+	
+# split data into patterns & targets
 def split_X_Y(data):
-	X=data.select(lambda x:x[0] not in [0], axis=1)
-	Y=data[0]
+	X=data.select(lambda x:x[0] not in ['target'], axis=1) # everything not labeled "target" is a pattern, [0] refers to the level of multi-index
+	Y=data['target'] # targets
 	return X, Y
 
 # split data into train & test sets
@@ -60,34 +69,37 @@ def split_week_days(data):
 	return Sun, Mon, Tue, Wen, Thu, Fri, Sat
 
 # create & train basic NN model
-def create_model(nb_in=24, nb_out=24, nb_hidden=10, nb_epoch=200, batch_size=10, activation='relu', loss='mean_squared_error', optimizer='adam'):
+def create_model(n_in=24, n_out=24, n_hidden=10, batch_size=10, activation='relu', loss='mean_squared_error', optimizer='adam'):
 	from keras.models import Sequential
 	from keras.layers.core import Dense
+	from keras.layers import LSTM
 	model = Sequential() # FFN
-	model.add(Dense(nb_hidden, input_dim=nb_in,activation=activation)) # input & hidden layers
-	#model.add(Dropout({{uniform(0, 1)}})) # randomly set a number of inputs to 0 to prevent overfitting
-	model.add(Dense(nb_out)) # output layer
+	model.add(LSTM(input_dim=n_in,output_dim=n_hidden,activation=activation)) # input & hidden recurrent layers
+	model.add(Dense(n_out)) # output layer
 	model.compile(loss=loss, optimizer=optimizer) # assemble network	
 	return model
 
 
+from sklearn.metrics import r2_score, make_scorer
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.model_selection import GridSearchCV
 from keras.wrappers.scikit_learn import KerasRegressor
 
-seed=0 # fix seed for reprodicibility
-np.random.seed(seed)
+np.random.seed(0) # fix seed for reprodicibility
 path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv' # data path
 load=load_data(path) # load data
 load_with_nans=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.mean())).unstack() # custom sum function where any Nan in arguments gives Nan as result
 # set grid search parameters and ranges
-grid_space={'nb_hidden':[10,20,30]}
+grid_space={'n_hidden':[10,20,30]}
 
-for i in range(1,6): # optimize for number of time steps
-	X,Y=split_X_Y(shift_data(load_with_nans,nb_shifts=i,shift=1).dropna()) # create patterns & targets in the correct format
-	grid_space['nb_in']=[X.shape[1]] # workaround for enabling varying pattern lengths corresponding to the number of time steps
+for i in range(1,2): # optimize for number of time steps
+	X,Y=split_X_Y(shift_data(load_with_nans,n_shifts=i,shift=1).dropna()) # create patterns & targets in a suitable format
+	X=order_timesteps(X) # put timesteps in the correct order starting from the oldest
+	X=np.reshape(X.as_matrix(), (X.shape[0],i,X.shape[1]//i)) # reshape patterns to match specific requirements of LSTM
+	grid_space['n_in']=[X.shape[2]] # workaround for enabling varying pattern lengths corresponding to the number of time steps
 	model=KerasRegressor(build_fn=create_model,verbose=0) # create model template
-	grid_setup = GridSearchCV(estimator=model, param_grid=grid_space, n_jobs=1) # set up the grid search
-	grid_result = grid_setup.fit(X.as_matrix(), Y.as_matrix()) # fild best parameters
+	grid_setup = GridSearchCV(estimator=model, param_grid=grid_space, cv=TimeSeriesSplit(n_splits=3),n_jobs=1, scoring=make_scorer(r2_score,multioutput='uniform_average'), verbose=10) # set up the grid search	
+	grid_result = grid_setup.fit(X, Y.as_matrix()) # find best parameters
 	# summarize results
 	print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_)) # print best parameters
 	means = grid_result.cv_results_['mean_test_score']
@@ -95,4 +107,15 @@ for i in range(1,6): # optimize for number of time steps
 	params = grid_result.cv_results_['params']
 	for mean, stdev, param in zip(means, stds, params):	print("%f (%f) with: %r" % (mean, stdev, param)) # print all sets of parameters
 
-plt.plot(grid_result.best_estimator_.predict(X.as_matrix())[0])
+plt.plot(grid_result.best_estimator_.predict(X)[0])
+
+
+
+
+
+
+
+
+
+
+
