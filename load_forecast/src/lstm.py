@@ -1,3 +1,4 @@
+'''LONG SHORT-TERM MEMORY'''
 import os
 import numpy as np
 import sklearn
@@ -29,10 +30,10 @@ def cut_data(data,inplace=False):
 	return data_new
 
 # shifts data for time series forcasting
-def shift_data(data,n_shifts=1,shift=7):
+def shift_data(data,n_shifts=1,shift=1):
 	data_shifted={} # lagged dataframes for merging
 	for i in range(0,n_shifts+1): # for each time step
-		label='target' # label for target values
+		label='targets' # label for target values
 		if (i!=n_shifts):label='t-{}'.format(n_shifts-i) # labels for patterns
 		data_shifted[label]=data.shift(-i*shift) # add lagged dataframe
 	res=pd.concat(data_shifted.values(),axis=1,join='inner',keys=data_shifted.keys()) # merge lagged dataframes
@@ -46,9 +47,9 @@ def order_timesteps(data, inplace=False):
 	return data_new
 	
 # split data into patterns & targets
-def split_X_Y(data):
-	X=data.select(lambda x:x[0] not in ['target'], axis=1) # everything not labeled "target" is a pattern, [0] refers to the level of multi-index
-	Y=data['target'] # targets
+def split_X_Y(data,target_label='targets'):
+	X=data.select(lambda x:x[0] not in [target_label], axis=1) # everything not labeled "target" is a pattern, [0] refers to the level of multi-index
+	Y=data[target_label] # targets
 	return X, Y
 
 # split data into train & test sets
