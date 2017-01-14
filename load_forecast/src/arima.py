@@ -8,7 +8,7 @@ from sklearn.metrics import r2_score
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import acf, pacf
 from statsmodels.graphics.tsaplots import plot_acf,plot_pacf
-from statsmodels.tsa.arima_model import ARMA,ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
 
@@ -50,9 +50,7 @@ dp.cut(load,inplace=True)
 load_with_nans=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.mean())).unstack() # custom sum function where any Nan in arguments gives Nan as result		
 load_filled_nans=pd.DataFrame(load_with_nans.fillna(method='bfill')) # placeholder, explore also custom predictions
 
-load_train,load_test=load_filled_nans.iloc[:365],load_filled_nans.iloc[365:]
-load_filled_nans.head(365),load_filled_nans.tail(load_filled_nans.shape[0]-load_train.shape[0])
-	
+load_train,load_test=load_filled_nans.iloc[:730],load_filled_nans.iloc[730:]
 	
 # perform Dickey-Fuller test for each hour
 for i in range(0,24):
@@ -62,8 +60,21 @@ for i in range(0,24):
 
 
 load=load_train[11]
+load_ma=load.rolling(window=28).mean()
+load_ewm=load.ewm(halflife=7).mean()
+load_1diff=load.shift(1)-load
+
+
+plt.plot(load,color='black')
+plt.plot(load_ma,color='red')
+plt.plot(load_ewm,color='green')
+plt.plot(load_ewm,color='blue')
+plt.plot(load_1diff,color='orange')
+
+
+
 	
-load_dec=seasonal_decompose(load.values,freq=28) # decompose presuming weeks to correspond to load cycles, seasonal_decompose uses a symmetric moving average by default => head & tail nans
+load_dec=seasonal_decompose(load.values,freq=7) # decompose presuming weeks to correspond to load cycles, seasonal_decompose uses a symmetric moving average by default => head & tail nans
 load_dec.plot()
 
 week_period=load_dec.seasonal
@@ -89,17 +100,17 @@ load_resid=pd.Series(load_dec.resid,index=load_filled_nans.index).dropna()
 # ACF & PACF plots to determine p,q
 fig = plt.figure(figsize=(12,8))
 ax1 = fig.add_subplot(2,1,1)
-fig = plot_acf(load_resid,lags=50,ax=ax1) # plot ACF
+fig = plot_acf(load,lags=50,ax=ax1) # plot ACF
 ax2 = fig.add_subplot(2,1,2)
-fig=plot_pacf(load_resid,lags=100,ax=ax2) # plot PACF
+fig=plot_pacf(load,lags=100,ax=ax2) # plot PACF
 	
 acf,ci,Q,p_value = acf(load_resid, nlags=50,alpha=0.05,  qstat=True, unbiased=True)
 
 res = arma_order_select_ic(y, max_ar=7, max_ma=7, ic=['aic', 'bic', 'hqic'], trend='c', fit_kw=dict(method='css'))
 
 # ARMA model
-model = ARIMA(load_resid, order=(7,0,3)).fit()
-
+model = SARIMAX(load, order=(30,0,8)).fit()
+model.
 
 results_AR = model.fit(disp=-1)  
 plt.plot(data)
