@@ -4,10 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import dataprep as dp
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score,mean_squared_error
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import acf, pacf
 from statsmodels.graphics.tsaplots import plot_acf,plot_pacf
+from statsmodels.tsa.arima_model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
@@ -41,7 +42,14 @@ def df_test(data):
 	for key,value in df_test[4].items():
 		dfoutput['Critical Value (%s)'%key] = value
 	print(dfoutput)
-	
+
+# ACF & PACF plots to determine p,q
+def plot_cfs(data,lag_acf=10,lag_pacf=10):
+	fig = plt.figure(figsize=(12,8))
+	ax1 = fig.add_subplot(2,1,1)
+	fig = plot_acf(data,lags=lag_acf,ax=ax1) # plot ACF
+	ax2 = fig.add_subplot(2,1,2)
+	fig=plot_pacf(data,lags=lag_pacf,ax=ax2) # plot PACF
 	
 np.random.seed(0) # fix seed for reprodicibility
 path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv' # data path
@@ -63,6 +71,27 @@ load=load_train[11]
 load_ma=load.rolling(window=28).mean()
 load_ewm=load.ewm(halflife=7).mean()
 load_1diff=load.shift(1)-load
+load_7diff=load.shift(7)-load
+load_364diff=load.shift(364)-load
+
+
+model_0diff=ARIMA(load,order=(0,0,0)).fit(trend='c')
+model_1diff=ARIMA(load.values,order=(0,1,0)).fit(trend='c')
+model_2diff=ARIMA(load.values,order=(0,2,0)).fit(trend='c')
+
+
+model_0diff.predict(start=0,end=len(load)-1)
+model_1diff.predict(start=1,end=len(load)-1)
+model_2diff.predict(start=2,end=len(load)-1)
+
+mean_squared_error(y_true=load, y_pred=model_0diff.predict(start=0,end=len(load)-1))
+mean_squared_error(y_true=load.shift(1).dropna(), y_pred=model_1diff.predict(start=1,end=len(load)-1))
+mean_squared_error(y_true=load.shift(2).dropna(), y_pred=model_2diff.predict(start=2,end=len(load)-1))
+
+model = SARIMAX(load, order=(p,d,q),seasonal_order=(P,D,Q,s)).fit()
+
+
+
 
 
 plt.plot(load,color='black')
@@ -97,19 +126,14 @@ load_resid=pd.Series(load_dec.resid,index=load_filled_nans.index).dropna()
 	
 
 
-# ACF & PACF plots to determine p,q
-fig = plt.figure(figsize=(12,8))
-ax1 = fig.add_subplot(2,1,1)
-fig = plot_acf(load,lags=50,ax=ax1) # plot ACF
-ax2 = fig.add_subplot(2,1,2)
-fig=plot_pacf(load,lags=100,ax=ax2) # plot PACF
+
 	
 acf,ci,Q,p_value = acf(load_resid, nlags=50,alpha=0.05,  qstat=True, unbiased=True)
 
 res = arma_order_select_ic(y, max_ar=7, max_ma=7, ic=['aic', 'bic', 'hqic'], trend='c', fit_kw=dict(method='css'))
 
 # ARMA model
-model = SARIMAX(load, order=(30,0,8)).fit()
+
 model.
 
 results_AR = model.fit(disp=-1)  
