@@ -58,13 +58,27 @@ dp.cut(load,inplace=True)
 load_with_nans=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.mean())).unstack() # custom sum function where any Nan in arguments gives Nan as result		
 load_filled_nans=pd.DataFrame(load_with_nans.fillna(method='bfill')) # placeholder, explore also custom predictions
 
-load_train,load_test=load_filled_nans.iloc[:730],load_filled_nans.iloc[730:]
-	
 # perform Dickey-Fuller test for each hour
 for i in range(0,24):
 	print('{}:'.format(i))
 	df_test(load_train[i])
 	print()
+
+
+Sun,Mon,Tue,Wen,Thu,Fri,Sat=dp.split_week_days(load_filled_nans)
+
+for i in range(24):
+	load=Wen[i] # use Wednesday
+	train,test=load[:150],load[150:] # split into train test 3:1
+	model = SARIMAX(train, order=(0,1,1),seasonal_order=(0,1,1,7),trend='c',measurement_error=True).fit() # train model
+	result=SARIMAX(load, order=(0,1,1),seasonal_order=(0,1,1,7),trend='c',measurement_error=True).filter(model.params) # workaround for rolling day ahead forecast
+	plt.figure()
+	plt.plot(result.predict())
+	plt.plot(load)
+
+
+load_train,load_test=load_filled_nans.iloc[:730],load_filled_nans.iloc[730:]
+load_train,load_test=load_filled_nans.iloc[:365],load_filled_nans.iloc[365:]
 
 
 load=load_train[11]
