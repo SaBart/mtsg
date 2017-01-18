@@ -50,18 +50,16 @@ def split_X_Y(data,target_label='targets'):
 	return X, Y
 
 # split data into train & test sets
-def split_train_test(data, test_size=0.2):
-	from sklearn.model_selection import train_test_split
-	train, test =train_test_split(data, test_size=test_size)
+def split_train_test(data, test_size=0.2,base=7): # in time series analysis order of samples usually matters, so no shuffling of samples
+	idx=flr((1-test_size)*len(data),base) # calculate number of samples in train set 
+	train,test =data[:idx],data[idx:] # split data into train & test sets
 	return train,test
 
-# split data into 7 datasets according to weekdays
-def split_week_days(data):
-	Sun=data.iloc[::7, :] # simulation starts on Sunday 1 of January
-	Mon=data.iloc[1::7, :]
-	Tue=data.iloc[2::7, :]
-	Wen=data.iloc[3::7, :]
-	Thu=data.iloc[4::7, :]
-	Fri=data.iloc[5::7, :]
-	Sat=data.iloc[6::7, :]
-	return Sun, Mon, Tue, Wen, Thu, Fri, Sat
+# split data into n datasets (according to weekdays)
+def split(data,nsplits=7): 
+	return {i:data.iloc[i::nsplits,:] for i in range(nsplits)} # return also the index of th split
+	
+
+# rounds down to the nearest multiple of base
+def flr(x,base=7):
+	return base*int(x/base)
