@@ -59,7 +59,6 @@ def split_train_test(data, test_size=0.2,base=7): # in time series analysis orde
 def split(data,nsplits=7): 
 	return {i:data.iloc[i::nsplits,:] for i in range(nsplits)} # return also the index of th split
 	
-
 # rounds down to the nearest multiple of base
 def flr(x,base=7):
 	return base*int(x/base)
