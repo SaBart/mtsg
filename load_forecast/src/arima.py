@@ -54,7 +54,7 @@ def plot_cfs(data,lag_acf=10,lag_pacf=10):
 np.random.seed(0) # fix seed for reprodicibility
 path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv' # data path
 load=dp.load(path) # load data
-dp.cut(load,inplace=True)
+dp.cut(load,inplace=True) # remove leading & trailing Nans
 load_with_nans=load.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.mean())).unstack() # custom sum function where any Nan in arguments gives Nan as result		
 load_filled_nans=pd.DataFrame(load_with_nans.fillna(method='bfill')) # placeholder, explore also custom predictions
 

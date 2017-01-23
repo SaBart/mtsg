@@ -7,13 +7,17 @@ import pandas as pd
 # loads data
 def load(path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv'):
 	load=pd.read_csv(path,header=0,sep=";",usecols=[0,1,2], names=['date','time','load'],dtype={'load': np.float64},na_values=['?'], parse_dates=['date'], date_parser=(lambda x:pd.to_datetime(x,format='%d/%m/%Y'))) # read csv
-	load['hour']=pd.DatetimeIndex(load['time']).hour # new culumn for hours
+	load['hour']=pd.DatetimeIndex(load['time']).hour # new column for hours
 	load['minute']=pd.DatetimeIndex(load['time']).minute # new column for minutes
 	load=pd.pivot_table(load,index=['date','hour'], columns='minute', values='load') # pivot so that minutes are columns, date & hour multi-index and load is value
 	load=load.applymap(lambda x:(x*1000)/60) # convert kW to Wh 
 	load.sort_index(inplace=True) # sort entries (just in case)
 	return load
 
+# saves data to csv
+def save(path,data):
+	data.to_csv(path,header=True)
+	
 # remove incomplete first and last days
 def cut(data,inplace=False):
 	if (inplace):data_new=data
@@ -50,7 +54,7 @@ def split_X_Y(data,target_label='targets'):
 	return X, Y
 
 # split data into train & test sets
-def split_train_test(data, test_size=0.2,base=7): # in time series analysis order of samples usually matters, so no shuffling of samples
+def split_train_test(data, base=7,test_size=0.25): # in time series analysis order of samples usually matters, so no shuffling of samples
 	idx=flr((1-test_size)*len(data),base) # calculate number of samples in train set 
 	train,test =data[:idx],data[idx:] # split data into train & test sets
 	return train,test

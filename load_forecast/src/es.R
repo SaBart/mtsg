@@ -1,1 +1,29 @@
 library(forecast)
+library(xts)
+
+loads=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/load_proc.csv',header=TRUE,sep=',',dec='.')
+train=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/load_train.csv',header=TRUE,sep=',',dec='.')
+test=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/load_test.csv',header=TRUE,sep=',',dec='.')
+
+train_ts=ts(train[[10]],frequency=findfrequency(train[[10]]))
+test_ts=ts(test[[10]],frequency=findfrequency(test[[10]]))
+train_xts=xts(train[[10]],as.POSIXct(train[["date"]]))
+test_xts=xts(test[[10]],order.by=as.POSIXct(test$date))
+
+fit_train_ts=ets(train_ts)
+fit_test_ts=ets(test_ts,model=fit_train_ts)
+fit_train_xts=ets(train_xts)
+fit_test_xts=ets(test_xts,model=fit_train_xts)
+
+train_ts_pred=fitted(fit_train_ts)
+test_ts_pred=fitted(fit_test_ts)
+train_xts_pred=fitted(fit_train_xts)
+test_xts_pred=fitted(fit_test_xts)
+
+
+ts.plot(train_ts,train_ts_pred,col=c('black','red'),lty=c(5,1))
+ts.plot(test_ts,test_ts_pred,col=c('black','red'),lty=c(5,1))
+ts.plot(train_xts,train_xts_pred,col=c('black','red'),lty=c(5,1))
+ts.plot(test_xts,test_xts_pred,col=c('black','red'),lty=c(5,1))
+
+
