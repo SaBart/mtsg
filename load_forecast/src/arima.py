@@ -64,23 +64,25 @@ for i in range(0,24):
 	df_test(load_train[i])
 	print()
 
+
 train,test=dp.split_train_test(load_filled_nans, test_size=0.25) # split data into train & test samples
-pred_train=pd.DataFrame(data=None,index=train.index,columns=train.columns) # in sample predictions on train set
-pred_test=pd.DataFrame(data=None,index=test.index,columns=test.columns) # out of sample prediction on test set
 
-for (i,train_day,test_day) in [(i, dp.split(train,nsplits=7)[i], dp.split(test,nsplits=7)[i]) for i in dp.split(train,nsplits=7)]: # for each day
-	pred_train_day=pd.DataFrame(data=None,index=train_day.index,columns=train_day.columns) # in sample predictions on train set
-	pred_test_day=pd.DataFrame(data=None,index=test_day.index,columns=test_day.columns) # out of sample prediction on test set
-	for hour in train_day: # for each hour in a day
-		train_day_hour=train_day[hour] # train samples for particular hour
-		test_day_hour=test_day[hour] # test samples for particular hour
-		model_train = SARIMAX(train_day_hour, order=(0,1,1),seasonal_order=(0,1,1,7),trend='c',measurement_error=True).fit() # train model
-		model_test=SARIMAX(pd.concat([train_day_hour,test_day_hour]), order=(0,1,1),seasonal_order=(0,1,1,7),trend='c',measurement_error=True).filter(model_train.params) # workaround for rolling day ahead forecast
-		pred_train_day[hour]=model_test.predict(start=0,end=len(train_day)-1) # predict in sample on train set
-		pred_test_day[hour]=model_test.predict(start=len(train_day)) # predict out of sample on test set
-	pred_train.iloc[i::7,:]=pred_train_day # fill corresponding rows with in sample predictions
-	pred_test.iloc[i::7,:]=pred_test_day # fill corresponding rows with out of sample predictions
-
+def sarimax(train,test):
+	train_pred=pd.DataFrame(data=None,index=train.index,columns=train.columns) # in sample predictions on train set
+	test_pred=pd.DataFrame(data=None,index=test.index,columns=test.columns) # out of sample prediction on test set	
+	for (i,train_day,test_day) in [(i, dp.split(train,nsplits=7)[i], dp.split(test,nsplits=7)[i]) for i in dp.split(train,nsplits=7)]: # for each day
+		train_pred_day=pd.DataFrame(data=None,index=train_day.index,columns=train_day.columns) # in sample predictions on train set
+		test_pred_day=pd.DataFrame(data=None,index=test_day.index,columns=test_day.columns) # out of sample prediction on test set
+		for hour in train_day: # for each hour in a day
+			train_day_hour=train_day[hour] # train samples for particular hour
+			test_day_hour=test_day[hour] # test samples for particular hour
+			model_train = SARIMAX(train_day_hour, order=(0,1,1),seasonal_order=(0,1,1,7),trend='c',measurement_error=True).fit() # train model
+			model_test=SARIMAX(pd.concat([train_day_hour,test_day_hour]), order=(0,1,1),seasonal_order=(0,1,1,7),trend='c',measurement_error=True).filter(model_train.params) # workaround for rolling day ahead forecast
+			train_pred_day[hour]=model_test.predict(start=0,end=len(train_day)-1) # predict in sample on train set
+			test_pred_day[hour]=model_test.predict(start=len(train_day)) # predict out of sample on test set
+		train_pred.iloc[i::7,:]=train_pred_day # fill corresponding rows with in sample predictions
+		test_pred.iloc[i::7,:]=test_pred_day # fill corresponding rows with out of sample predictions
+	return train_pred,test_pred
 
 r2_score(y_pred=pred_test,y_true=test,multioutput='uniform_average')
 
