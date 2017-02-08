@@ -1,5 +1,5 @@
 library(forecast)
-library(xts)
+library(fpp)
 
 loads=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/load_proc.csv',header=TRUE,sep=',',dec='.')
 train=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/load_train.csv',header=TRUE,sep=',',dec='.')
@@ -27,4 +27,17 @@ test_xts_pred=fitted(fit_test_xts)
 ts.plot(train_xts,train_xts_pred,col=c('black','red'),lty=c(5,1))
 ts.plot(test_xts,test_xts_pred,col=c('black','red'),lty=c(5,1))
 
-
+# Multi-step, re-estimation
+h <- 5
+train <- window(hsales,end=1989.99)
+test <- window(hsales,start=1990)
+n <- length(test) - h + 1
+fit <- auto.arima(train)
+order <- arimaorder(fit)
+fcmat <- matrix(0, nrow=n, ncol=h)
+for(i in 1:n)
+{  
+  x <- window(hsales, end=1989.99 + (i-1)/12)
+  refit <- Arima(x, order=order[1:3], seasonal=order[4:6])
+  fcmat[i,] <- forecast(refit, h=h)$mean
+}

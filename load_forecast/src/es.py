@@ -16,8 +16,8 @@ def ets(train,test,freq=7):
 	forecast=importr('forecast') # forecast package
 	ts=ro.r.ts # R time series
 	fitted=ro.r('fitted') # function exporting forecasts used while fitting model
-	r_train_ts=ts(train,frequency=freq) # construct R's ts object, assume weekly frequency
-	r_test_ts=ts(test,frequency=freq) # construct R's ts object, assume weekly frequency
+	r_train_ts=ts(train,frequency=freq) # construct R's ts object
+	r_test_ts=ts(test,frequency=freq) # construct R's ts object
 	fit_train=forecast.ets(r_train_ts) # find best model on train test
 	fit_test=forecast.ets(r_test_ts,model=fit_train) # get predictions on test set
 	train_pred=pd.Series(pandas2ri.ri2py(fitted(fit_train)),index=train.index) # reconstruct pandas DataFrame from R float vector
@@ -26,10 +26,10 @@ def ets(train,test,freq=7):
 
 # searches for the best exponential smoothing model for each hour separately
 def ets_h(train,test,freq=7):
-	train_pred=pd.DataFrame(data=None,index=train.index,columns=train.columns)
-	test_pred=pd.DataFrame(data=None,index=test.index,columns=test.columns)
-	for col in train:
-		train_pred[col],test_pred[col]=ets(train[col],test[col],freq=freq)
+	train_pred=pd.DataFrame(data=None,index=train.index,columns=train.columns) # prepare dataframe for in sample predictions on train set
+	test_pred=pd.DataFrame(data=None,index=test.index,columns=test.columns) # prepare dataframe for out of sample prediction on test set
+	for col in train: # for each hour
+		train_pred[col],test_pred[col]=ets(train[col],test[col],freq=freq) # fill corresponding column with predictions
 	return train_pred,test_pred
 
 # searches for the best exponential smoothing model for each hour & day of the week separately

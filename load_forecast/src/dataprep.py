@@ -49,7 +49,7 @@ def order(data, inplace=False):
 	
 # split data into patterns & targets
 def split_X_Y(data,target_label='targets'):
-	X=data.select(lambda x:x[0] not in [target_label], axis=1) # everything not labeled "target" is a pattern, [0] refers to the level of multi-index
+	X=data.select(lambda x:x[0] not in [target_label], axis=1) # everything not labelled "target" is a pattern, [0] refers to the level of multi-index
 	Y=data[target_label] # targets
 	return X, Y
 
@@ -61,7 +61,7 @@ def split_train_test(data, base=7,test_size=0.25): # in time series analysis ord
 
 # split data into n datasets (according to weekdays)
 def split(data,nsplits=7): 
-	return {i:data.iloc[i::nsplits,:] for i in range(nsplits)} # return also the index of th split
+	return {i:data.iloc[i::nsplits,:] for i in range(nsplits)} # return as a dictionary {offset:data}
 	
 # rounds down to the nearest multiple of base
 def flr(x,base=7):
