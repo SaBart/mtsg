@@ -13,7 +13,7 @@ from tqdm import tqdm
 import time
 
 # calls libraries from R to find the best arima model
-def arima(train,test,hor=24,freq=24):
+def arima(train,test,hor=24,batch=7,freq=24):
 	pandas2ri.activate()
 	forecast=importr('forecast') # forecast package
 	ts=ro.r.ts # R time series
@@ -25,7 +25,10 @@ def arima(train,test,hor=24,freq=24):
 			model=forecast.auto_arima(test_ts) # find best model on train test (i.e. original model)
 			order=forecast.arimaorder(model) # retrieve the order of this best model
 		else: # not the first iteration
-			model=forecast.Arima(test_ts,order=order[0:3],seasonal=order[3:6]) # train Arima model on current (expanded) train set using order found on the original train set
+			if i%batch==0: # if its time to retrain
+				model=forecast.Arima(test_ts,order=order[0:3],seasonal=order[3:6]) # train Arima model on current (expanded) train set using order found on the original train set
+			else: # it is not the time to retrain
+				model=forecast.Arima(test_ts,model=model) # do not train, use current model with new observations
 		test_pred.iloc[i,:]=pd.Series(pandas2ri.ri2py(forecast.forecast(model,h=hor).rx2('mean'))) # predict all 24 hours for a new day & convert to pandas DataFrame
 	return test_pred
 
@@ -63,7 +66,7 @@ targets.fillna(method='bfill',inplace=True) # fill nans withprevious values
 train,test=dp.split_train_test(data=targets, test_size=0.25, base=7)
 
 # vertical
-test_pred=arima_v(train,test)
+test_pred=arima_v(train,test,freq=7)
 r2_score(y_true=test,y_pred=test_pred,multioutput='uniform_average')
 dp.save(data=test_pred,path='C:/Users/SABA/Google Drive/mtsg/data/arima_v.csv')
 # vertical week
@@ -71,7 +74,7 @@ test_pred=arima_vw(train,test,freq=52)
 r2_score(y_true=test,y_pred=test_pred,multioutput='uniform_average')
 dp.save(data=test_pred,path='C:/Users/SABA/Google Drive/mtsg/data/arima_vw.csv')
 # horizontal
-test_pred=arima(train,test)
+test_pred=arima(train,test,hor=24,batch=7,freq=24)
 r2_score(y_true=test,y_pred=test_pred,multioutput='uniform_average')
 dp.save(data=test_pred,path='C:/Users/SABA/Google Drive/mtsg/data/arima_h.csv')
 # horizontal week
