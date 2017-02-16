@@ -1,12 +1,17 @@
 library(forecast)
-library(fpp)
 
-loads=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/load_proc.csv',header=TRUE,sep=',',dec='.')
-train=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/load_train.csv',header=TRUE,sep=',',dec='.')
-test=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/load_test.csv',header=TRUE,sep=',',dec='.')
+train=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/train.csv',header=TRUE,sep=',',dec='.')
+test=read.csv('C:/Users/SABA/Google Drive/mtsg/code/load_forecast/data/test.csv',header=TRUE,sep=',',dec='.')
 
-train_ts=ts(train[[10]],frequency=1)
-test_ts=ts(test[[10]],frequency=1)
+
+batch=7
+hor=24
+train_ts=ts(train,frequency=24)
+test_ts=ts(test,frequency=24)
+
+
+
+
 
 train_ts=ts(train[[2]],frequency=findfrequency(train[[2]]))
 test_ts=ts(test[[2]],frequency=findfrequency(test[[2]]))
