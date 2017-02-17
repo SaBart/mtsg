@@ -19,28 +19,25 @@ def save(data,path):
 	data.to_csv(path,header=True)
 	
 # combines minute time intervals into hours
-def m2h(data,nan='keep',inplace=False):
-	data_new=data if inplace else data.copy()
-	if nan=='keep': # if we want to kken Nans
-		data_new= data.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.mean())).unstack() # custom sum function where any Nan in minute time interval results in Nan for hour time interval
-	return data_new
+def m2h(data,nan='keep'):
+	if nan=='keep': # if we want to keep Nans
+		data= data.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.mean())).unstack() # custom sum function where any Nan in minute time interval results in Nan for hour time interval
+	return data
 
 # flattens data, converts columns into a multiindex level
-def flatten(data,inplace=False):
-	data_new=data if inplace else data.copy()
-	if not isinstance(data, pd.Series): data_new=data.stack()
-	return data_new
+def flatten(data):
+	if not isinstance(data, pd.Series): data=data.stack() # if not series (already flat) then flatten
+	return data
 	
 # remove incomplete first and last days
-def cut(data,inplace=False):
-	data_new=data if inplace else data.copy()
-	f,_=data_new.index.min() # first day
-	l,_=data_new.index.max() # last day
-	if len(data_new.loc[f])<24: # if first day is incomplete
-		data_new.drop(f,level=0,inplace=True) # drop the whole day
-	if len(data_new.loc[l])<24: # if last day is incomplete
-		data_new.drop(l,level=0,inplace=True) # drop the whole day
-	return data_new
+def cut(data):
+	f,_=data.index.min() # first day
+	l,_=data.index.max() # last day
+	if len(data.loc[f])<24: # if first day is incomplete
+		data=data.drop(f,level=0) # drop the whole day
+	if len(data.loc[l])<24: # if last day is incomplete
+		data=data.drop(l,level=0) # drop the whole day
+	return data
 
 # shifts data for time series forcasting
 def shift(data,n_shifts=1,shift=1):
@@ -53,10 +50,9 @@ def shift(data,n_shifts=1,shift=1):
 	return res.dropna() # TODO: handling missing values
 
 # order timesteps from the oldest
-def order(data, inplace=False):
-	data_new=data if inplace else data.copy()
-	data_new=data_new[sorted(data_new.columns,reverse=True,key=(lambda x:x[0]))] # sort first level of column multiindex in descending order
-	return data_new
+def order(data):
+	data=data[sorted(data.columns,reverse=True,key=(lambda x:x[0]))] # sort first level of column multiindex in descending order
+	return data
 	
 # split data into patterns & targets
 def split_X_Y(data,target_label='targets'):
@@ -66,13 +62,13 @@ def split_X_Y(data,target_label='targets'):
 
 # split data into train & test sets
 def split_train_test(data, base=7,test_size=0.25): # in time series analysis order of samples usually matters, so no shuffling of samples
-	idx=flr((1-test_size)*len(data),base) # calculate number of samples in train set 
+	idx=flr((1-test_size)*len(data),base) if test_size>0 else len(data) # calculate number of samples in train set 
 	train,test =data[:idx],data[idx:] # split data into train & test sets
 	return train,test
 
 # split data into n datasets (according to weekdays)
 def split(data,nsplits=7): 
-	return {i:data.iloc[i::nsplits,:] for i in range(nsplits)} # return as a dictionary {offset:data}
+	return {i:data.iloc[i::nsplits] for i in range(nsplits)} # return as a dictionary {offset:data}
 	
 # rounds down to the nearest multiple of base
 def flr(x,base=7):

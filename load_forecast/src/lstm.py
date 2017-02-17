@@ -5,7 +5,7 @@ import sklearn
 import matplotlib.pyplot as plt
 import pandas as pd
 import dataprep as dp
-
+import importlib
 
 # create & train basic NN model
 def create_model(n_in=24, n_out=24, n_hidden=10, batch_size=10, activation='relu', loss='mean_squared_error', optimizer='adam'):

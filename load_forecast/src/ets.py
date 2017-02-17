@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import dataprep as dp
+import importlib
 import patsy
 import gc
 import rpy2.robjects as ro
@@ -54,7 +55,7 @@ def ets_vw(train,test,batch=7,freq=52):
 np.random.seed(0) # fix seed for reprodicibility
 path='C:/Users/SABA/Google Drive/mtsg/data/household_power_consumption.csv' # data path
 load_raw=dp.load(path) # load data
-dp.cut(load_raw,inplace=True) # remove leading & trailing Nans
+load_raw=dp.cut(load_raw) # remove leading & trailing Nans
 targets=load_raw.apply(axis=1,func=(lambda x: np.nan if (x.isnull().sum()>0) else x.mean())).unstack() # custom sum function where any Nan in arguments gives Nan as result
 targets.fillna(method='bfill',inplace=True)
 train,test=dp.split_train_test(data=targets, test_size=0.25, base=7)
